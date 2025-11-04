@@ -281,10 +281,15 @@ const handlePlayerReady = (message) => {
 const handleGameStarted = (message) => {
   console.log('游戏开始:', message);
   gameState.gameStatus = 'playing';
-  gameState.currentPlayer = message.currentPlayer;
+  if (message.currentPlayer !== undefined) {
+    gameState.currentPlayer = message.currentPlayer;
+  }
   // 触发游戏开始回调
   if (gameState.onGameStart) {
+    console.log('触发游戏开始回调');
     gameState.onGameStart();
+  } else {
+    console.warn('游戏开始回调未设置');
   }
 };
 
@@ -322,6 +327,25 @@ const handleGameState = (message) => {
   // 更新最后出牌玩家
   if (message.last_player !== undefined) {
     gameState.lastPlayer = message.last_player;
+  }
+  
+  // 如果收到手牌数据但游戏状态还是 waiting，更新为 playing
+  if (message.player && message.player.cards && message.player.cards.length > 0) {
+    if (gameState.gameStatus !== 'playing') {
+      console.log('收到手牌数据，更新游戏状态为 playing');
+      gameState.gameStatus = 'playing';
+    }
+    // 如果游戏已开始但没有触发回调，尝试触发
+    if (gameState.onGameStart) {
+      console.log('收到手牌数据，触发游戏开始回调');
+      const callback = gameState.onGameStart;
+      // 延迟一下确保状态已更新
+      setTimeout(() => {
+        if (gameState.gameStatus === 'playing' && gameState.player && gameState.player.cards) {
+          callback();
+        }
+      }, 200);
+    }
   }
 };
 

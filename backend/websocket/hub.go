@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/chenhailong/hong3/game"
 )
@@ -355,21 +356,32 @@ func (h *Hub) HandleGameAction(client *Client, action map[string]interface{}) {
 			}
 			log.Printf("游戏开始成功！")
 
-			// 向每个玩家发送他们的手牌
-			for clientInRoom := range h.rooms[roomID] {
-				for _, player := range g.Players {
-					if player != nil && player.ID == clientInRoom.playerID {
-						clientInRoom.send <- h.createGameStateMessage(g, player.ID)
-						break
-					}
-				}
-			}
-
-			// 广播游戏开始
+			// 先广播游戏开始
 			h.broadcastToRoom(roomID, map[string]interface{}{
 				"type":          "game_started",
 				"currentPlayer": g.CurrentPlayer,
 			})
+
+			// 然后向每个玩家发送他们的手牌（延迟一小段时间，确保 game_started 消息先到达）
+			go func() {
+				time.Sleep(100 * time.Millisecond)
+				h.mutex.Lock()
+				defer h.mutex.Unlock()
+				if room, ok := h.rooms[roomID]; ok {
+					for clientInRoom := range room {
+						for _, player := range g.Players {
+							if player != nil && player.ID == clientInRoom.playerID {
+								select {
+								case clientInRoom.send <- h.createGameStateMessage(g, player.ID):
+								default:
+									log.Printf("无法发送游戏状态给玩家 %s", clientInRoom.playerID)
+								}
+								break
+							}
+						}
+					}
+				}
+			}()
 		}
 
 	case "play_cards":
@@ -441,6 +453,7 @@ func (h *Hub) HandleGameAction(client *Client, action map[string]interface{}) {
 
 // createGameStateMessage 创建游戏状态消息
 func (h *Hub) createGameStateMessage(g *game.Game, playerID string) []byte {
+	log.Printf("创建游戏状态消息给玩家 %s", playerID)
 	// 找到玩家
 	var currentPlayer *game.Player
 	for _, p := range g.Players {
