@@ -1,6 +1,9 @@
 # 构建阶段
 FROM golang:1.24-alpine AS builder
 
+# 设置 Alpine 镜像源（使用阿里云镜像加速）
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+
 # 设置工作目录
 WORKDIR /app
 
@@ -24,6 +27,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
 
 # 运行阶段
 FROM alpine:latest
+
+# 设置 Alpine 镜像源（使用阿里云镜像加速）
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 # 安装 ca 证书和 wget（用于健康检查）
 RUN apk --no-cache add ca-certificates wget
