@@ -25,15 +25,15 @@ const ws = {
   connection: null,
 };
 
-// 获取后端服务器地址（动态获取，支持通过 IP 访问）
+// 获取后端服务器地址（通过 nginx 代理，使用相对路径）
 const getBackendUrl = () => {
-  const hostname = window.location.hostname;
-  const port = '8080';
-  // 根据当前页面协议选择 WebSocket 协议
+  // 使用相对路径，通过 nginx 代理到后端
+  // nginx 会将 /ws 和 /api 代理到 backend:8080
   const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  const baseUrl = `${window.location.protocol}//${window.location.host}`;
   return {
-    ws: `${wsProtocol}://${hostname}:${port}`,
-    http: `${window.location.protocol}//${hostname}:${port}`,
+    ws: `${wsProtocol}://${window.location.host}`,  // 通过 nginx 代理，例如: ws://localhost/ws
+    http: baseUrl,  // 通过 nginx 代理，例如: http://localhost/api
   };
 };
 
