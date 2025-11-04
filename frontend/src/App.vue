@@ -150,6 +150,13 @@ body {
   min-height: 100vh;
   width: 100%;
   position: relative;
+  /* 全屏显示 */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .app-container.game-view {
@@ -160,6 +167,22 @@ body {
   height: 100vh;
   min-height: 100vh;
   overflow: hidden;
+}
+
+/* 移动端横屏优化 */
+@media screen and (max-width: 768px) {
+  .app-container {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+  
+  .app-content {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* 游戏界面时，给 body 添加全屏类 */

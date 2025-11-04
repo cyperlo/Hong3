@@ -7,19 +7,11 @@
       </div>
     </div>
 
-    <div v-if="!gameState.connected" class="login-form">
-      <input
-        v-model="playerName"
-        type="text"
-        placeholder="输入你的名字"
-        @keyup.enter="handleConnect"
-      />
-      <button
-        @click="handleConnect"
-        :disabled="!playerName || gameState.connecting"
-      >
-        {{ gameState.connecting ? '连接中...' : '进入游戏' }}
-      </button>
+    <div v-if="!gameState.connected" class="connecting-status">
+      <div class="connecting-message">
+        <p>正在连接游戏服务器...</p>
+        <div class="loading-spinner"></div>
+      </div>
     </div>
 
     <div v-else-if="!gameState.roomId" class="room-list">
@@ -96,17 +88,24 @@
 </template>
 
 <script>
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 import gameStore from '../store/gameStore';
-import { v4 as uuidv4 } from 'uuid';
+import authStore from '../store/authStore';
 
 export default {
   name: 'Lobby',
   emits: ['join-room', 'create-room'],
   setup(props, { emit }) {
-    const playerName = ref('');
     const { state: gameState } = gameStore;
     const hasJumpedToRoom = ref(false); // 防止重复跳转
+    
+    // 组件挂载时自动连接 WebSocket（使用登录时的用户信息）
+    onMounted(() => {
+      if (authStore.state.user && !gameState.connected && !gameState.connecting) {
+        // 使用登录时的用户 ID 和昵称连接 WebSocket
+        gameStore.connectWebSocket(authStore.state.user.id, authStore.state.user.name);
+      }
+    });
     
     // 监听房间状态变化，自动跳转到 Room 视图
     watch(() => gameState.roomId, (newRoomId) => {
@@ -118,13 +117,6 @@ export default {
         }, 300); // 延迟确保状态已更新
       }
     });
-
-    const handleConnect = () => {
-      if (playerName.value) {
-        const playerId = uuidv4();
-        gameStore.connectWebSocket(playerId, playerName.value);
-      }
-    };
 
     const handleCreateRoom = () => {
       gameStore.createRoom();
@@ -159,9 +151,7 @@ export default {
     };
 
     return {
-      playerName,
       gameState,
-      handleConnect,
       handleCreateRoom,
       handleJoinRoom,
       handleLeaveRoom,
@@ -200,30 +190,36 @@ export default {
   margin-top: 0.5rem;
 }
 
-.login-form {
+.connecting-status {
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  max-width: 400px;
-  margin: 2rem auto;
-  padding: 2rem;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
 }
 
-.login-form input {
-  flex: 1;
-  padding: 1rem;
-  font-size: 1rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  transition: border-color 0.3s;
+.connecting-message {
+  text-align: center;
+  color: #666;
 }
 
-.login-form input:focus {
-  outline: none;
-  border-color: #d32f2f;
+.connecting-message p {
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #4CAF50;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .room-controls {

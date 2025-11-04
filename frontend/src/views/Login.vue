@@ -147,22 +147,32 @@ const handleRegister = async () => {
   registering.value = true;
 
   try {
+    // 注册
     await authStore.register(registerForm.username, registerForm.password, registerForm.name);
-    // 注册成功后自动登录
-    try {
-      await authStore.login(registerForm.username, registerForm.password);
-      showRegister.value = false; // 关闭弹窗
-      // 清空注册表单
-      registerForm.username = '';
-      registerForm.password = '';
-      registerForm.name = '';
-      registerError.value = '';
-      emit('login-success');
-    } catch (err) {
-      registerError.value = '注册成功，但登录失败: ' + (err.message || '未知错误');
-    }
+    
+    // 注册成功后，等待一小段时间确保后端处理完成，然后自动登录
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // 自动登录
+    await authStore.login(registerForm.username, registerForm.password);
+    
+    // 关闭弹窗并清空表单
+    showRegister.value = false;
+    registerForm.username = '';
+    registerForm.password = '';
+    registerForm.name = '';
+    registerError.value = '';
+    
+    // 触发登录成功事件
+    emit('login-success');
   } catch (err) {
-    registerError.value = err.message || '注册失败';
+    // 如果注册失败，显示注册错误
+    // 如果注册成功但登录失败，显示登录错误
+    if (err.message && err.message.includes('登录')) {
+      registerError.value = '注册成功，但登录失败: ' + (err.message || '未知错误');
+    } else {
+      registerError.value = err.message || '注册失败';
+    }
   } finally {
     registering.value = false;
   }
@@ -171,21 +181,50 @@ const handleRegister = async () => {
 
 <style scoped>
 .login-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 1rem;
+  overflow: hidden;
 }
 
 .login-content {
   width: 100%;
-  max-width: 420px;
+  max-width: 600px;
   background: white;
   border-radius: 20px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   overflow: hidden;
+}
+
+/* 横屏模式优化 */
+@media (orientation: landscape) {
+  .login-content {
+    max-width: 800px;
+    display: flex;
+    flex-direction: row;
+  }
+  
+  .logo-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  
+  .login-form-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
 }
 
 .logo-section {
