@@ -7,6 +7,9 @@ WORKDIR /app
 # 安装构建依赖
 RUN apk add --no-cache git
 
+# 设置 Go 代理（使用中国镜像加速下载）
+ENV GOPROXY=https://goproxy.cn,direct
+
 # 复制 go mod 文件
 COPY go.mod go.sum ./
 

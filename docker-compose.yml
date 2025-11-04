@@ -74,7 +74,8 @@ networks:
   hong3-network:
     driver: bridge
 
-#volumes:
-  # redis-data:
-  # postgres-data:
+# 如果需要使用 volumes，取消下面的注释
+# volumes:
+#   redis-data:
+#   postgres-data:
 
