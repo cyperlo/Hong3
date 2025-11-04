@@ -37,8 +37,10 @@ onMounted(() => {
   };
 });
 
-// 断开WebSocket连接
+// 断开WebSocket连接和清理房间状态
 onBeforeUnmount(() => {
+  // 清理房间状态
+  gameStore.leaveRoom();
   if (gameState.socket) {
     gameState.socket.close();
   }
@@ -64,15 +66,15 @@ watch(() => gameState.roomPlayers, (newPlayers) => {
     isReady.value = currentPlayer.ready || false;
   }
 }, { deep: true });
+
+// 暴露方法给父组件
+defineExpose({
+  leaveRoom
+});
 </script>
 
 <template>
   <div class="room-container">
-    <div class="room-header">
-      <h2>房间: {{ roomState.id }}</h2>
-      <button class="leave-button" @click="leaveRoom">离开房间</button>
-    </div>
-    
     <div class="room-content">
       <div class="players-section">
         <h3>玩家列表</h3>
@@ -120,24 +122,12 @@ watch(() => gameState.roomPlayers, (newPlayers) => {
 
 <style scoped>
 .room-container {
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
   padding: 1rem;
-}
-
-.room-header {
+  min-height: calc(100vh - 200px);
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-
-.leave-button {
-  background-color: #d32f2f;
-}
-
-.leave-button:hover {
-  background-color: #b71c1c;
+  flex-direction: column;
 }
 
 .room-content {
@@ -145,18 +135,24 @@ watch(() => gameState.roomPlayers, (newPlayers) => {
   grid-template-columns: 1fr 1fr;
   gap: 2rem;
   margin-bottom: 2rem;
+  flex: 1;
 }
 
 .players-section, .game-info {
-  background-color: white;
-  border-radius: 8px;
+  background: white;
+  border-radius: 12px;
   padding: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #f0f0f0;
 }
 
 h3 {
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
   color: #1b5e20;
+  font-size: 1.3rem;
+  font-weight: bold;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e8f5e9;
 }
 
 .players-list {
@@ -168,18 +164,27 @@ h3 {
 .player-item {
   display: flex;
   justify-content: space-between;
-  padding: 0.75rem;
-  background-color: #f5f5f5;
-  border-radius: 4px;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, #f5f5f5 0%, #fafafa 100%);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  transition: all 0.3s;
+}
+
+.player-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .current-player {
-  background-color: #e8f5e9;
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
   border-left: 4px solid #1b5e20;
+  font-weight: 600;
 }
 
 .player-ready {
-  background-color: #e8f5e9;
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
 }
 
 .player-name {
@@ -190,41 +195,103 @@ h3 {
   color: #666;
 }
 
+.rules-card {
+  line-height: 1.8;
+}
+
 .rules-card p {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+  color: #555;
+  padding-left: 1rem;
+  position: relative;
+}
+
+.rules-card p::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: #1b5e20;
+  font-weight: bold;
+  font-size: 1.2rem;
 }
 
 .room-actions {
   display: flex;
   justify-content: center;
-  margin-top: 2rem;
+  margin-top: auto;
+  padding: 1rem 0;
+  position: sticky;
+  bottom: 0;
+  background-color: #f0f2f5;
+  z-index: 10;
 }
 
 .ready-button {
-  padding: 0.75rem 2rem;
-  font-size: 1.1rem;
+  padding: 1rem 3rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+  min-height: 56px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s;
+  letter-spacing: 1px;
+}
+
+.ready-button:not(.ready-active) {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
 }
 
 .ready-active {
-  background-color: #d32f2f;
+  background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%);
 }
 
-.ready-active:hover {
-  background-color: #b71c1c;
+.ready-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.ready-button:active {
+  transform: translateY(0);
 }
 
 .error-message {
   margin-top: 1rem;
-  padding: 0.75rem;
-  background-color: #ffebee;
-  color: #d32f2f;
-  border-radius: 4px;
+  padding: 1rem;
+  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+  color: #c62828;
+  border-radius: 8px;
   text-align: center;
+  border-left: 4px solid #c62828;
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {
+  .room-container {
+    padding: 0.5rem;
+    min-height: calc(100vh - 180px);
+  }
+  
   .room-content {
     grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .room-actions {
+    padding: 0.75rem 0;
+    position: sticky;
+    bottom: 0;
+    background-color: #f0f2f5;
+    margin-top: auto;
+  }
+  
+  .ready-button {
+    width: 100%;
+    max-width: 300px;
+    padding: 1rem 2rem;
+    font-size: 1.2rem;
   }
 }
 </style>

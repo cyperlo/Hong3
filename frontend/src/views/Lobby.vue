@@ -173,136 +173,182 @@ export default {
 
 <style scoped>
 .lobby {
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 2rem 1rem;
 }
 
 .header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.header h1 {
+  font-size: 2rem;
+  color: #1b5e20;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
 }
 
 .player-info {
-  font-size: 1.1em;
+  font-size: 1rem;
   color: #666;
+  background-color: #e8f5e9;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  display: inline-block;
+  margin-top: 0.5rem;
 }
 
 .login-form {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 400px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .login-form input {
   flex: 1;
-  padding: 8px;
-  font-size: 1em;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: 1rem;
+  font-size: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  transition: border-color 0.3s;
+}
+
+.login-form input:focus {
+  outline: none;
+  border-color: #d32f2f;
 }
 
 .room-controls {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  justify-content: center;
 }
 
 .create-room-btn,
 .refresh-btn {
-  padding: 8px 16px;
-  font-size: 1em;
+  padding: 0.875rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
   border: none;
-  border-radius: 4px;
-  background-color: #4CAF50;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
   color: white;
-  transition: background-color 0.3s;
+  transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
 }
 
 .create-room-btn:hover,
 .refresh-btn:hover {
-  background-color: #45a049;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
 }
 
 .create-room-btn:disabled,
 .refresh-btn:disabled {
-  background-color: #cccccc;
+  background: #e0e0e0;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .loading,
 .no-rooms {
   text-align: center;
-  padding: 20px;
+  padding: 3rem;
   color: #666;
+  font-size: 1.1rem;
 }
 
 .rooms {
   display: grid;
-  gap: 15px;
+  gap: 1rem;
 }
 
 .room-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px;
-  background-color: #f5f5f5;
-  border-radius: 4px;
-  transition: background-color 0.3s;
+  padding: 1.25rem 1.5rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s;
+  border: 2px solid transparent;
 }
 
 .room-item:hover {
-  background-color: #e8e8e8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  border-color: #e0e0e0;
 }
 
 .room-info {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 0.5rem;
 }
 
 .room-id {
-  font-weight: bold;
-  color: #333;
+  font-weight: 600;
+  color: #1b5e20;
+  font-size: 1.1rem;
 }
 
 .player-count {
   color: #666;
-  font-size: 0.9em;
+  font-size: 0.9rem;
 }
 
 .join-btn {
-  padding: 6px 12px;
-  font-size: 0.9em;
+  padding: 0.625rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
   cursor: pointer;
   border: none;
-  border-radius: 4px;
-  background-color: #2196F3;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
   color: white;
-  transition: background-color 0.3s;
+  transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
 }
 
 .join-btn:hover {
-  background-color: #1976D2;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
 }
 
 .join-btn:disabled {
-  background-color: #cccccc;
+  background: #e0e0e0;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .room {
-  background-color: #f5f5f5;
-  padding: 20px;
-  border-radius: 4px;
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .player-list {
-  margin: 20px 0;
+  margin: 1.5rem 0;
+}
+
+.player-list h3 {
+  color: #1b5e20;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
 }
 
 .player-list ul {
@@ -311,37 +357,77 @@ export default {
 }
 
 .player-list li {
-  padding: 8px;
-  margin: 5px 0;
-  background-color: white;
-  border-radius: 4px;
+  padding: 0.875rem 1rem;
+  margin: 0.5rem 0;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  transition: all 0.3s;
 }
 
 .current-player {
-  font-weight: bold;
-  background-color: #e3f2fd;
+  font-weight: 600;
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  border-left: 4px solid #1b5e20;
 }
 
 .leave-btn {
-  padding: 8px 16px;
-  font-size: 1em;
+  padding: 0.875rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
   border: none;
-  border-radius: 4px;
-  background-color: #f44336;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
   color: white;
-  transition: background-color 0.3s;
+  transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
 }
 
 .leave-btn:hover {
-  background-color: #d32f2f;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
 }
 
 .error {
-  margin-top: 20px;
-  padding: 10px;
-  background-color: #ffebee;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
   color: #c62828;
-  border-radius: 4px;
+  border-radius: 8px;
+  border-left: 4px solid #c62828;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .lobby {
+    padding: 1rem 0.5rem;
+  }
+  
+  .header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .login-form {
+    padding: 1.5rem;
+  }
+  
+  .room-controls {
+    flex-direction: column;
+  }
+  
+  .create-room-btn,
+  .refresh-btn {
+    width: 100%;
+  }
+  
+  .room-item {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  
+  .join-btn {
+    width: 100%;
+  }
 }
 </style>

@@ -16,14 +16,54 @@ const isMyTurn = computed(() => {
   return gameState.currentPlayer === gameState.player?.position;
 });
 
-// 连接WebSocket
+const isLandscape = ref(false);
+const showRotateHint = ref(false);
+
+// 检测屏幕方向
+const checkOrientation = () => {
+  const isLandscapeMode = window.innerWidth > window.innerHeight;
+  isLandscape.value = isLandscapeMode;
+  showRotateHint.value = !isLandscapeMode && window.innerWidth < 768;
+  
+  // 如果是竖屏，尝试锁定横屏（需要用户授权）
+  if (!isLandscapeMode && window.screen && window.screen.orientation) {
+    try {
+      window.screen.orientation.lock('landscape').catch(() => {
+        // 锁定失败，显示提示
+        showRotateHint.value = true;
+      });
+    } catch (e) {
+      // 不支持锁定，显示提示
+      showRotateHint.value = true;
+    }
+  }
+};
+
 onMounted(() => {
   gameStore.connectWebSocket(props.playerId, props.playerName);
   
-  // 如果有房间ID，加入房间
   if (props.roomId) {
     gameStore.joinRoom(props.roomId);
   }
+  
+  // 检测屏幕方向
+  checkOrientation();
+  window.addEventListener('resize', checkOrientation);
+  window.addEventListener('orientationchange', checkOrientation);
+  
+  // 尝试全屏（需要用户交互）
+  const tryFullscreen = () => {
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else if (document.documentElement.webkitRequestFullscreen) {
+      document.documentElement.webkitRequestFullscreen();
+    } else if (document.documentElement.mozRequestFullScreen) {
+      document.documentElement.mozRequestFullScreen();
+    }
+  };
+  
+  // 延迟尝试全屏，避免阻塞
+  setTimeout(tryFullscreen, 500);
 });
 
 // 断开WebSocket连接
@@ -31,6 +71,8 @@ onBeforeUnmount(() => {
   if (gameState.socket) {
     gameState.socket.close();
   }
+  window.removeEventListener('resize', checkOrientation);
+  window.removeEventListener('orientationchange', checkOrientation);
 });
 
 // 选择/取消选择卡牌
@@ -93,7 +135,16 @@ const getCardRankDisplay = (rank) => {
 </script>
 
 <template>
-  <div class="game-table">
+  <div class="game-table" :class="{ 'landscape': isLandscape }">
+    <!-- 横屏提示 -->
+    <div v-if="showRotateHint" class="rotate-hint">
+      <div class="rotate-hint-content">
+        <div class="rotate-icon">📱</div>
+        <p>请将手机横屏以获得最佳游戏体验</p>
+        <p class="rotate-hint-sub">Rotate your device to landscape mode</p>
+      </div>
+    </div>
+    
     <!-- 顶部：其他玩家区域 -->
     <div class="players-top-row">
       <div 
@@ -180,14 +231,66 @@ const getCardRankDisplay = (rank) => {
 
 <style scoped>
 .game-table {
-  position: relative;
-  width: 100%;
-  min-height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
-  padding: 0.5rem;
+  padding: 0;
+  margin: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+}
+
+
+/* 横屏提示 */
+.rotate-hint {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  color: white;
+}
+
+.rotate-hint-content {
+  text-align: center;
+  padding: 2rem;
+}
+
+.rotate-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(90deg);
+  }
+}
+
+.rotate-hint-content p {
+  font-size: 1.2rem;
+  margin: 0.5rem 0;
+  font-weight: bold;
+}
+
+.rotate-hint-sub {
+  font-size: 0.9rem;
+  opacity: 0.8;
+  font-weight: normal;
 }
 
 /* 顶部玩家区域（横屏时显示在顶部） */
@@ -195,19 +298,22 @@ const getCardRankDisplay = (rank) => {
   display: flex;
   justify-content: space-around;
   align-items: center;
-  padding: 0.5rem;
-  min-height: 100px;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  padding: 0.4rem 0.3rem;
+  min-height: 90px;
+  max-height: 100px;
+  flex-wrap: nowrap;
+  gap: 0.3rem;
+  flex-shrink: 0;
 }
 
 .player-area {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 80px;
+  min-width: 0;
   flex: 1;
-  max-width: 120px;
+  max-width: 25%;
+  height: 100%;
 }
 
 
@@ -283,15 +389,17 @@ const getCardRankDisplay = (rank) => {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 1rem;
-  min-height: 200px;
+  padding: 0.5rem;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .table-cards {
   background-color: rgba(255, 255, 255, 0.95);
-  padding: 1rem 1.5rem;
+  padding: 0.8rem 1.2rem;
   border-radius: 12px;
-  min-width: 250px;
+  min-width: 200px;
+  max-width: 90%;
   text-align: center;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   border: 2px solid rgba(255, 255, 255, 0.5);
@@ -317,9 +425,12 @@ const getCardRankDisplay = (rank) => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.5rem;
-  background-color: rgba(0, 0, 0, 0.2);
-  border-radius: 12px 12px 0 0;
+  padding: 0.4rem 0.3rem;
+  background-color: rgba(0, 0, 0, 0.25);
+  border-radius: 0;
+  flex-shrink: 0;
+  max-height: 40vh;
+  min-height: 180px;
 }
 
 .hand-cards-container {
@@ -327,11 +438,13 @@ const getCardRankDisplay = (rank) => {
   flex-wrap: nowrap;
   overflow-x: auto;
   overflow-y: hidden;
-  gap: 8px;
-  padding: 10px;
+  gap: 6px;
+  padding: 8px 10px;
   width: 100%;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
+  flex: 1;
+  min-height: 0;
 }
 
 .hand-cards-container::-webkit-scrollbar {
@@ -350,34 +463,35 @@ const getCardRankDisplay = (rank) => {
 
 .hand-card {
   flex-shrink: 0;
-  width: 70px;
-  height: 100px;
+  width: 65px;
+  height: 95px;
   transition: all 0.3s ease;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .hand-card.selected {
-  transform: translateY(-15px) scale(1.05);
+  transform: translateY(-12px) scale(1.08);
   z-index: 10;
   filter: drop-shadow(0 4px 8px rgba(255, 235, 59, 0.8));
 }
 
 .action-buttons {
   display: flex;
-  gap: 0.8rem;
-  margin-top: 0.8rem;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
   width: 100%;
   justify-content: center;
-  padding: 0 1rem;
-  flex-wrap: wrap;
+  padding: 0 0.5rem;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .action-buttons button {
   flex: 1;
-  min-width: 80px;
-  max-width: 120px;
-  padding: 0.8rem 1.2rem;
-  font-size: 1rem;
+  min-width: 0;
+  padding: 0.7rem 0.8rem;
+  font-size: 0.95rem;
   font-weight: bold;
   border-radius: 8px;
   border: none;
@@ -385,6 +499,8 @@ const getCardRankDisplay = (rank) => {
   color: white;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
   transition: all 0.2s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .action-buttons button:disabled {
@@ -444,81 +560,158 @@ const getCardRankDisplay = (rank) => {
 }
 
 /* 横屏优化（手机横屏模式） */
-@media (orientation: landscape) and (max-height: 600px) {
+@media (orientation: landscape) {
   .game-table {
-    min-height: 100vh;
+    height: 100vh;
+    width: 100vw;
   }
   
   .players-top-row {
-    min-height: 80px;
-    padding: 0.3rem;
-  }
-  
-  .player-area {
-    min-width: 70px;
-    max-width: 100px;
+    min-height: 75px;
+    max-height: 85px;
+    padding: 0.3rem 0.2rem;
   }
   
   .player-info {
-    padding: 0.3rem 0.4rem;
+    padding: 0.25rem 0.4rem;
   }
   
   .player-name {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
   }
   
   .card-count {
-    font-size: 0.65rem;
+    font-size: 0.6rem;
   }
   
   .card-back {
-    width: 20px;
-    height: 28px;
+    width: 18px;
+    height: 26px;
+  }
+  
+  .card-count-more {
+    width: 18px;
+    height: 26px;
+    font-size: 0.6rem;
   }
   
   .game-center {
-    min-height: 150px;
-    padding: 0.5rem;
+    padding: 0.3rem;
+    flex: 1;
+    min-height: 0;
   }
   
   .table-cards {
-    padding: 0.8rem 1rem;
-    min-width: 200px;
-  }
-  
-  .hand-card {
-    width: 60px;
-    height: 85px;
-  }
-  
-  .hand-card.selected {
-    transform: translateY(-10px) scale(1.03);
-  }
-  
-  .action-buttons {
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-    padding: 0 0.5rem;
-  }
-  
-  .action-buttons button {
     padding: 0.6rem 1rem;
-    font-size: 0.9rem;
-    min-width: 70px;
-    max-width: 100px;
+    min-width: 180px;
+    max-width: 85%;
   }
-}
-
-/* 竖屏手机优化 */
-@media (orientation: portrait) and (max-width: 768px) {
+  
+  .table-cards-label {
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+  }
+  
+  .table-cards-content {
+    font-size: 1rem;
+  }
+  
+  .player-hand {
+    padding: 0.3rem 0.2rem;
+    max-height: 35vh;
+    min-height: 160px;
+  }
+  
+  .hand-cards-container {
+    gap: 5px;
+    padding: 6px 8px;
+  }
+  
   .hand-card {
     width: 55px;
     height: 80px;
   }
   
+  .hand-card.selected {
+    transform: translateY(-10px) scale(1.06);
+  }
+  
+  .action-buttons {
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+    padding: 0 0.3rem;
+  }
+  
   .action-buttons button {
-    padding: 0.7rem 1rem;
-    font-size: 0.95rem;
+    padding: 0.6rem 0.6rem;
+    font-size: 0.85rem;
+  }
+  
+  .my-turn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* 小屏幕横屏（手机） */
+@media (orientation: landscape) and (max-height: 500px) {
+  .players-top-row {
+    min-height: 65px;
+    max-height: 70px;
+    padding: 0.2rem;
+  }
+  
+  .player-info {
+    padding: 0.2rem 0.3rem;
+  }
+  
+  .player-name {
+    font-size: 0.65rem;
+  }
+  
+  .card-count {
+    font-size: 0.55rem;
+  }
+  
+  .card-back {
+    width: 15px;
+    height: 22px;
+  }
+  
+  .hand-card {
+    width: 50px;
+    height: 72px;
+  }
+  
+  .player-hand {
+    max-height: 30vh;
+    min-height: 140px;
+  }
+  
+  .action-buttons button {
+    padding: 0.5rem 0.5rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* 竖屏手机优化 - 显示横屏提示 */
+@media (orientation: portrait) and (max-width: 768px) {
+  .rotate-hint {
+    display: flex;
+  }
+  
+  .players-top-row,
+  .game-center,
+  .player-hand {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+}
+
+/* 横屏时隐藏提示 */
+@media (orientation: landscape) {
+  .rotate-hint {
+    display: none !important;
   }
 }
 </style>
