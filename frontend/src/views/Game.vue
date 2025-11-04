@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import PlayingCard from '../components/PlayingCard.vue';
 import gameStore from '../store/gameStore.js';
 
@@ -18,6 +18,61 @@ const isMyTurn = computed(() => {
 
 const isLandscape = ref(false);
 const showRotateHint = ref(false);
+
+// 发牌动画相关
+const isDealing = ref(false);
+const dealtCards = ref([]);
+const showCards = ref(false);
+
+// 对手牌进行排序（从大到小：3 > 2 > A > K > ... > 4）
+const sortCards = (cards) => {
+  if (!cards || cards.length === 0) return [];
+  
+  const sorted = [...cards].sort((a, b) => {
+    // 先按点数排序（从大到小）
+    if (a.rank !== b.rank) {
+      return b.rank - a.rank;
+    }
+    // 点数相同，按花色排序（红桃 > 方块 > 黑桃 > 梅花）
+    const suitOrder = { 'hearts': 4, 'diamonds': 3, 'spades': 2, 'clubs': 1 };
+    return suitOrder[b.suit] - suitOrder[a.suit];
+  });
+  
+  return sorted;
+};
+
+// 计算排序后的手牌
+const sortedCards = computed(() => {
+  if (!gameState.player || !gameState.player.cards) {
+    return [];
+  }
+  return sortCards(gameState.player.cards);
+});
+
+// 监听手牌变化，触发发牌动画
+watch(() => gameState.player?.cards, (newCards, oldCards) => {
+  // 如果是从无到有（初始发牌），触发发牌动画
+  if (newCards && newCards.length > 0 && (!oldCards || oldCards.length === 0)) {
+    startDealingAnimation(newCards);
+  } else if (newCards && newCards.length > 0) {
+    // 手牌已存在
+    if (oldCards && oldCards.length !== newCards.length) {
+      // 手牌数量变化（出牌后），直接显示，不需要动画
+      showCards.value = true;
+      dealtCards.value = sortCards(newCards);
+      isDealing.value = false;
+    } else if (!showCards.value) {
+      // 第一次显示
+      showCards.value = true;
+      dealtCards.value = sortCards(newCards);
+    }
+  } else if (!newCards || newCards.length === 0) {
+    // 手牌被清空
+    showCards.value = false;
+    dealtCards.value = [];
+    isDealing.value = false;
+  }
+}, { deep: true, immediate: true });
 
 // 检测屏幕方向
 const checkOrientation = () => {
@@ -77,7 +132,33 @@ onBeforeUnmount(() => {
 
 // 选择/取消选择卡牌
 const toggleCardSelection = (index) => {
-  gameStore.toggleCardSelection(index);
+  // index 是排序后的索引，需要转换为原始索引
+  // 由于我们使用排序后的牌，这里直接使用排序后的索引
+  // 但需要确保 gameStore 中的 selectedCards 使用正确的索引
+  const originalIndex = gameState.player?.cards?.findIndex((c, i) => {
+    const sorted = sortedCards.value;
+    return sorted[index] && c.suit === sorted[index].suit && c.rank === sorted[index].rank;
+  }) ?? index;
+  
+  gameStore.toggleCardSelection(originalIndex);
+};
+
+// 检查卡片是否被选中（使用排序后的索引）
+const isCardSelected = (sortedIndex) => {
+  if (!gameState.selectedCards || !gameState.player?.cards) {
+    return false;
+  }
+  
+  const sorted = sortedCards.value;
+  const card = sorted[sortedIndex];
+  if (!card) return false;
+  
+  // 找到原始索引
+  const originalIndex = gameState.player.cards.findIndex((c) => 
+    c.suit === card.suit && c.rank === card.rank
+  );
+  
+  return gameState.selectedCards.includes(originalIndex);
 };
 
 // 出牌
@@ -132,9 +213,34 @@ const getCardRankDisplay = (rank) => {
     default: return rank.toString();
   }
 };
+
+// 开始发牌动画
+const startDealingAnimation = (cards) => {
+  isDealing.value = true;
+  showCards.value = false;
+  dealtCards.value = [];
+  
+  const sorted = sortCards(cards);
+  
+  // 逐张发牌动画
+  sorted.forEach((card, index) => {
+    setTimeout(() => {
+      dealtCards.value.push(card);
+      
+      // 最后一张牌发完后，显示所有牌
+      if (index === sorted.length - 1) {
+        setTimeout(() => {
+          isDealing.value = false;
+          showCards.value = true;
+        }, 150);
+      }
+    }, index * 80); // 每张牌间隔 80ms
+  });
+};
 </script>
 
 <template>
+  
   <div class="game-table" :class="{ 'landscape': isLandscape }">
     <!-- 横屏提示 -->
     <div v-if="showRotateHint" class="rotate-hint">
@@ -184,13 +290,18 @@ const getCardRankDisplay = (rank) => {
     </div>
     
     <!-- 玩家手牌区 -->
-    <div class="player-hand" v-if="gameState.player && gameState.player.cards">
-      <div class="hand-cards-container">
+    <div class="player-hand" v-if="gameState.player && gameState.player.cards && gameState.player.cards.length > 0">
+      <div class="hand-cards-container" :class="{ 'dealing': isDealing }">
         <div 
-          v-for="(card, index) in gameState.player.cards" 
+          v-for="(card, index) in sortedCards" 
           :key="`${card.suit}-${card.rank}-${index}`"
           class="hand-card"
-          :class="{ selected: gameState.selectedCards && gameState.selectedCards.includes(index) }"
+          :class="{ 
+            selected: isCardSelected(index),
+            'card-dealing': isDealing && dealtCards.some(c => c.suit === card.suit && c.rank === card.rank),
+            'card-visible': !isDealing || showCards || dealtCards.some(c => c.suit === card.suit && c.rank === card.rank)
+          }"
+          :style="isDealing && dealtCards.some(c => c.suit === card.suit && c.rank === card.rank) ? { animationDelay: `${dealtCards.findIndex(c => c.suit === card.suit && c.rank === card.rank) * 0.08}s` } : {}"
           @click="toggleCardSelection(index)"
         >
           <PlayingCard :suit="card.suit" :rank="card.rank" />
@@ -441,10 +552,14 @@ const getCardRankDisplay = (rank) => {
   gap: 6px;
   padding: 8px 10px;
   width: 100%;
+  max-width: 100%;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   flex: 1;
   min-height: 0;
+  justify-content: center;
+  align-items: flex-end;
+  box-sizing: border-box;
 }
 
 .hand-cards-container::-webkit-scrollbar {
@@ -468,12 +583,44 @@ const getCardRankDisplay = (rank) => {
   transition: all 0.3s ease;
   cursor: pointer;
   touch-action: manipulation;
+  opacity: 0;
+  transform: translateY(100px) scale(0.8);
+  will-change: transform, opacity;
+}
+
+.hand-card.card-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  animation: none;
+}
+
+.hand-card.card-dealing {
+  animation: dealCard 0.4s ease-out forwards;
+}
+
+@keyframes dealCard {
+  0% {
+    opacity: 0;
+    transform: translateY(100px) scale(0.8) rotate(-10deg);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translateY(-20px) scale(1.1) rotate(5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
 }
 
 .hand-card.selected {
   transform: translateY(-12px) scale(1.08);
   z-index: 10;
   filter: drop-shadow(0 4px 8px rgba(255, 235, 59, 0.8));
+}
+
+.hand-card.selected.card-visible {
+  transform: translateY(-12px) scale(1.08);
 }
 
 .action-buttons {

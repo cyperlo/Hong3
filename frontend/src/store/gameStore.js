@@ -119,6 +119,9 @@ const handleMessage = (message) => {
     case 'game_state':
       handleGameState(message);
       break;
+    case 'cards_played':
+      handleCardsPlayed(message);
+      break;
     case 'error':
       gameState.error = message.message || message.error;
       console.error('收到错误消息:', message);
@@ -302,9 +305,18 @@ const handleGameState = (message) => {
   
   // 更新当前玩家数据（包含手牌）
   if (message.player) {
+    // 如果手牌发生变化，需要重新映射选中卡片的索引
+    const oldCards = gameState.player?.cards || [];
+    const newCards = message.player.cards || [];
+    
     gameState.player = message.player;
     // 初始化选中卡片数组
     if (!gameState.selectedCards) {
+      gameState.selectedCards = [];
+    }
+    
+    // 如果手牌数量变化，清除选中状态（因为索引可能变化）
+    if (oldCards.length !== newCards.length && gameState.selectedCards.length > 0) {
       gameState.selectedCards = [];
     }
   }
@@ -345,6 +357,36 @@ const handleGameState = (message) => {
           callback();
         }
       }, 200);
+    }
+  }
+};
+
+// 处理出牌消息
+const handleCardsPlayed = (message) => {
+  console.log('收到出牌消息:', message);
+  
+  // 更新桌面牌
+  if (message.table_cards) {
+    gameState.tableCards = message.table_cards;
+    console.log('更新桌面牌:', message.table_cards);
+  }
+  
+  // 更新当前出牌玩家
+  if (message.current_player !== undefined) {
+    gameState.currentPlayer = message.current_player;
+  }
+  
+  // 更新最后出牌玩家
+  if (message.last_player !== undefined) {
+    gameState.lastPlayer = message.last_player;
+  }
+  
+  // 更新其他玩家的牌数（如果出牌的玩家出完牌了）
+  if (message.playerID && gameState.otherPlayers) {
+    const player = gameState.otherPlayers.find(p => p.id === message.playerID);
+    if (player && message.table_cards && message.table_cards.cards) {
+      // 这里可以根据桌面牌数量推断玩家出牌数量，但更准确的是从 game_state 消息获取
+      // 暂时不更新，等待 game_state 消息
     }
   }
 };

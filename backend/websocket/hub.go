@@ -408,11 +408,37 @@ func (h *Hub) HandleGameAction(client *Client, action map[string]interface{}) {
 			return
 		}
 
-		// 向每个玩家发送更新后的游戏状态
+		log.Printf("玩家 %s 出牌成功，桌面牌: %+v", client.playerID, g.TableCards)
+
+		// 序列化桌面牌
+		var tableCardsData interface{} = nil
+		if g.TableCards != nil {
+			tableCardsData = map[string]interface{}{
+				"type":  g.TableCards.Type,
+				"cards": g.TableCards.Cards,
+				"value": g.TableCards.Value,
+			}
+		}
+
+		// 先广播出牌通知（包含桌面牌信息，但不包含手牌）
+		h.broadcastToRoom(roomID, map[string]interface{}{
+			"type":           "cards_played",
+			"playerID":       client.playerID,
+			"table_cards":    tableCardsData,
+			"current_player": g.CurrentPlayer,
+			"last_player":    g.LastPlayer,
+		})
+
+		// 然后向每个玩家发送完整的游戏状态（包含各自的手牌）
 		for clientInRoom := range h.rooms[roomID] {
 			for _, player := range g.Players {
 				if player != nil && player.ID == clientInRoom.playerID {
-					clientInRoom.send <- h.createGameStateMessage(g, player.ID)
+					select {
+					case clientInRoom.send <- h.createGameStateMessage(g, player.ID):
+						log.Printf("已发送游戏状态给玩家 %s", clientInRoom.playerID)
+					default:
+						log.Printf("无法发送游戏状态给玩家 %s（channel 已满）", clientInRoom.playerID)
+					}
 					break
 				}
 			}
@@ -482,6 +508,17 @@ func (h *Hub) createGameStateMessage(g *game.Game, playerID string) []byte {
 		}
 	}
 
+	// 序列化桌面牌
+	var tableCardsData interface{} = nil
+	if g.TableCards != nil {
+		// 手动序列化 CardGroup 以确保 JSON 格式正确
+		tableCardsData = map[string]interface{}{
+			"type":  g.TableCards.Type,
+			"cards": g.TableCards.Cards,
+			"value": g.TableCards.Value,
+		}
+	}
+
 	// 创建游戏状态
 	gameState := map[string]interface{}{
 		"type":          "game_state",
@@ -490,10 +527,15 @@ func (h *Hub) createGameStateMessage(g *game.Game, playerID string) []byte {
 		"last_player":   g.LastPlayer,
 		"player":        currentPlayer,
 		"other_players": otherPlayers,
-		"table_cards":   g.TableCards,
+		"table_cards":   tableCardsData,
 	}
 
-	data, _ := json.Marshal(gameState)
+	data, err := json.Marshal(gameState)
+	if err != nil {
+		log.Printf("序列化游戏状态失败: %v", err)
+		return []byte("{}")
+	}
+	log.Printf("游戏状态消息大小: %d 字节，桌面牌: %+v", len(data), tableCardsData)
 	return data
 }
 
