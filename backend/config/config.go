@@ -4,10 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strconv"
-
-	"gopkg.in/yaml.v3"
 )
 
 // Config 应用配置
@@ -44,147 +41,33 @@ type RedisConfig struct {
 
 var AppConfig *Config
 
-// LoadConfig 加载配置
-// 优先级：环境变量 > 配置文件 > 默认值
+// LoadConfig 从环境变量加载配置
 func LoadConfig() *Config {
-	config := &Config{}
-
-	// 首先尝试从配置文件加载
-	loadFromFile(config)
-
-	// 然后用环境变量覆盖（环境变量优先级最高）
-	applyEnvOverrides(config)
+	config := &Config{
+		Server: ServerConfig{
+			Port: getEnv("PORT", "8080"),
+			Host: getEnv("HOST", "0.0.0.0"),
+		},
+		Database: DatabaseConfig{
+			Host:     getEnv("DB_HOST", "postgres"),
+			Port:     getEnv("DB_PORT", "5432"),
+			User:     getEnv("DB_USER", "postgres"),
+			Password: getEnv("DB_PASSWORD", "postgres"),
+			Name:     getEnv("DB_NAME", "hong3"),
+			SSLMode:  getEnv("DB_SSLMODE", "disable"),
+		},
+		Redis: RedisConfig{
+			Host:     getEnv("REDIS_HOST", "redis"),
+			Port:     getEnv("REDIS_PORT", "6379"),
+			Password: getEnv("REDIS_PASSWORD", ""), // Redis 默认无密码
+			DB:       getEnvAsInt("REDIS_DB", 0),
+			Enabled:  getEnvAsBool("REDIS_ENABLED", false),
+		},
+	}
 
 	AppConfig = config
 	logConfig(config)
 	return config
-}
-
-// loadFromFile 从配置文件加载
-func loadFromFile(config *Config) {
-	// 查找配置文件，按优先级：
-	// 1. 当前目录的 config.yaml
-	// 2. backend 目录的 config.yaml
-	configPaths := []string{
-		"config.yaml",
-		filepath.Join("backend", "config.yaml"),
-		filepath.Join(".", "backend", "config.yaml"),
-	}
-
-	var configFile string
-	for _, path := range configPaths {
-		if _, err := os.Stat(path); err == nil {
-			configFile = path
-			break
-		}
-	}
-
-	if configFile == "" {
-		log.Println("Config file not found, using defaults and environment variables")
-		return
-	}
-
-	data, err := os.ReadFile(configFile)
-	if err != nil {
-		log.Printf("Warning: Failed to read config file %s: %v, using defaults", configFile, err)
-		return
-	}
-
-	if err := yaml.Unmarshal(data, config); err != nil {
-		log.Printf("Warning: Failed to parse config file %s: %v, using defaults", configFile, err)
-		return
-	}
-
-	log.Printf("Configuration loaded from file: %s", configFile)
-}
-
-// applyEnvOverrides 应用环境变量覆盖配置
-func applyEnvOverrides(config *Config) {
-	// 服务器配置
-	if port := getEnv("PORT", ""); port != "" {
-		config.Server.Port = port
-	}
-	if host := getEnv("HOST", ""); host != "" {
-		config.Server.Host = host
-	}
-
-	// 数据库配置
-	if host := getEnv("DB_HOST", ""); host != "" {
-		config.Database.Host = host
-	}
-	if port := getEnv("DB_PORT", ""); port != "" {
-		config.Database.Port = port
-	}
-	if user := getEnv("DB_USER", ""); user != "" {
-		config.Database.User = user
-	}
-	if password := getEnv("DB_PASSWORD", ""); password != "" {
-		config.Database.Password = password
-	}
-	if name := getEnv("DB_NAME", ""); name != "" {
-		config.Database.Name = name
-	}
-	if sslMode := getEnv("DB_SSLMODE", ""); sslMode != "" {
-		config.Database.SSLMode = sslMode
-	}
-
-	// Redis 配置
-	if host := getEnv("REDIS_HOST", ""); host != "" {
-		config.Redis.Host = host
-	}
-	if port := getEnv("REDIS_PORT", ""); port != "" {
-		config.Redis.Port = port
-	}
-	if password := getEnv("REDIS_PASSWORD", ""); password != "" {
-		config.Redis.Password = password
-	}
-	if db := getEnv("REDIS_DB", ""); db != "" {
-		if dbInt := getEnvAsInt("REDIS_DB", -1); dbInt >= 0 {
-			config.Redis.DB = dbInt
-		}
-	}
-	if enabled := getEnv("REDIS_ENABLED", ""); enabled != "" {
-		config.Redis.Enabled = getEnvAsBool("REDIS_ENABLED", false)
-	}
-
-	// 设置默认值（如果配置文件和环境变量都没有设置）
-	setDefaults(config)
-}
-
-// setDefaults 设置默认值
-func setDefaults(config *Config) {
-	if config.Server.Port == "" {
-		config.Server.Port = "8080"
-	}
-	if config.Server.Host == "" {
-		config.Server.Host = "0.0.0.0"
-	}
-
-	if config.Database.Host == "" {
-		config.Database.Host = "postgres"
-	}
-	if config.Database.Port == "" {
-		config.Database.Port = "5432"
-	}
-	if config.Database.User == "" {
-		config.Database.User = "postgres"
-	}
-	if config.Database.Password == "" {
-		config.Database.Password = "postgres"
-	}
-	if config.Database.Name == "" {
-		config.Database.Name = "hong3"
-	}
-	if config.Database.SSLMode == "" {
-		config.Database.SSLMode = "disable"
-	}
-
-	if config.Redis.Host == "" {
-		config.Redis.Host = "redis"
-	}
-	if config.Redis.Port == "" {
-		config.Redis.Port = "6379"
-	}
 }
 
 // GetDSN 获取数据库连接字符串
