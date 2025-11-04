@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/chenhailong/hong3/auth"
 	"github.com/chenhailong/hong3/websocket"
 	"github.com/gin-gonic/gin"
 	gorilla "github.com/gorilla/websocket"
@@ -57,6 +58,9 @@ func (s *Server) setupRoutes() {
 	})
 
 	// API路由
+	s.router.POST("/api/register", s.handleRegister)
+	s.router.POST("/api/login", s.handleLogin)
+	s.router.GET("/api/me", s.handleGetMe)
 	s.router.GET("/ws", s.handleWebSocket)
 	s.router.GET("/api/health", s.handleHealth)
 	s.router.GET("/api/rooms", s.handleGetRooms)
@@ -129,4 +133,110 @@ func (s *Server) handleHealth(c *gin.Context) {
 func (s *Server) handleGetRooms(c *gin.Context) {
 	rooms := s.hub.GetRooms()
 	c.JSON(http.StatusOK, rooms)
+}
+
+// RegisterRequest 注册请求
+type RegisterRequest struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+	Name     string `json:"name" binding:"required"`
+}
+
+// LoginRequest 登录请求
+type LoginRequest struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+// handleRegister 处理注册
+func (s *Server) handleRegister(c *gin.Context) {
+	var req RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请求参数错误"})
+		return
+	}
+
+	store := auth.GetStore()
+	user, err := store.Register(req.Username, req.Password, req.Name)
+	if err != nil {
+		if err == auth.ErrUserExists {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "注册失败"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user": gin.H{
+			"id":       user.ID,
+			"username": user.Username,
+			"name":     user.Name,
+		},
+		"message": "注册成功",
+	})
+}
+
+// handleLogin 处理登录
+func (s *Server) handleLogin(c *gin.Context) {
+	var req LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请求参数错误"})
+		return
+	}
+
+	store := auth.GetStore()
+	user, token, err := store.Login(req.Username, req.Password)
+	if err != nil {
+		if err == auth.ErrInvalidCredentials {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "登录失败"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": token,
+		"user": gin.H{
+			"id":       user.ID,
+			"username": user.Username,
+			"name":     user.Name,
+		},
+		"message": "登录成功",
+	})
+}
+
+// handleGetMe 获取当前用户信息
+func (s *Server) handleGetMe(c *gin.Context) {
+	token := c.GetHeader("Authorization")
+	if token == "" {
+		// 尝试从query参数获取
+		token = c.Query("token")
+	}
+
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未提供token"})
+		return
+	}
+
+	// 移除 "Bearer " 前缀（如果有）
+	if len(token) > 7 && token[:7] == "Bearer " {
+		token = token[7:]
+	}
+
+	store := auth.GetStore()
+	user, err := store.ValidateToken(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "无效的token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user": gin.H{
+			"id":       user.ID,
+			"username": user.Username,
+			"name":     user.Name,
+		},
+	})
 }
