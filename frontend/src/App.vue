@@ -1,21 +1,42 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
+import Login from './views/Login.vue';
 import Lobby from './views/Lobby.vue';
 import Room from './views/Room.vue';
 import Game from './views/Game.vue';
 import GameResult from './views/GameResult.vue';
+import authStore from './store/authStore';
 
 // 游戏状态
-const currentView = ref('lobby'); // lobby, room, game, result
+const currentView = ref('login'); // login, lobby, room, game, result
 const roomId = ref('');
 const playerId = ref('');
 const playerName = ref('');
 
-// 生成随机玩家ID和名称
+// 检查是否已登录
+const isAuthenticated = computed(() => authStore.state.isAuthenticated);
+
+// 从认证信息中获取玩家信息
 onMounted(() => {
-  playerId.value = 'player_' + Math.random().toString(36).substring(2, 10);
-  playerName.value = '玩家' + Math.floor(Math.random() * 1000);
+  if (isAuthenticated.value && authStore.state.user) {
+    // 已登录，使用用户信息
+    playerId.value = authStore.state.user.id;
+    playerName.value = authStore.state.user.name;
+    currentView.value = 'lobby';
+  } else {
+    // 未登录，显示登录页面
+    currentView.value = 'login';
+  }
 });
+
+// 处理登录成功
+const handleLoginSuccess = () => {
+  if (authStore.state.user) {
+    playerId.value = authStore.state.user.id;
+    playerName.value = authStore.state.user.name;
+    currentView.value = 'lobby';
+  }
+};
 
 // 切换视图
 const switchView = (view, params = {}) => {
@@ -45,59 +66,68 @@ watch(currentView, (newView) => {
 
 <template>
   <div class="app-container" :class="{ 'game-view': currentView === 'game' }">
-    <header v-if="currentView !== 'game'" class="app-header" :class="{ 'room-header-mode': currentView === 'room', 'lobby-header-mode': currentView === 'lobby' }">
-      <div class="header-content">
-        <h1 class="app-title">
-          <span class="title-red">红</span><span class="title-number">3</span>
-        </h1>
-        <div v-if="currentView === 'room'" class="room-header-info">
-          <div class="room-badge">
-            <span class="room-icon">🏠</span>
-            <span class="room-id-text">房间 {{ roomId }}</span>
+    <!-- 登录页面 -->
+    <Login 
+      v-if="currentView === 'login'" 
+      @login-success="handleLoginSuccess"
+    />
+    
+    <!-- 游戏页面 -->
+    <template v-else>
+      <header v-if="currentView !== 'game'" class="app-header" :class="{ 'room-header-mode': currentView === 'room', 'lobby-header-mode': currentView === 'lobby' }">
+        <div class="header-content">
+          <h1 class="app-title">
+            <span class="title-red">红</span><span class="title-number">3</span>
+          </h1>
+          <div v-if="currentView === 'room'" class="room-header-info">
+            <div class="room-badge">
+              <span class="room-icon">🏠</span>
+              <span class="room-id-text">房间 {{ roomId }}</span>
+            </div>
+            <button class="header-leave-btn" @click="handleLeaveRoom">
+              <span class="leave-icon">←</span>
+              离开
+            </button>
           </div>
-          <button class="header-leave-btn" @click="handleLeaveRoom">
-            <span class="leave-icon">←</span>
-            离开
-          </button>
         </div>
-      </div>
-    </header>
-    
-    <main class="app-content">
-      <Lobby 
-        v-if="currentView === 'lobby'" 
-        :playerId="playerId" 
-        :playerName="playerName"
-        @join-room="switchView('room', { roomId: $event })"
-        @create-room="switchView('room', { roomId: $event })"
-      />
+      </header>
       
-      <Room 
-        v-if="currentView === 'room'" 
-        :roomId="roomId"
-        :playerId="playerId" 
-        :playerName="playerName"
-        @game-start="switchView('game')"
-        @leave-room="handleLeaveRoom"
-      />
+      <main class="app-content">
+        <Lobby 
+          v-if="currentView === 'lobby'" 
+          :playerId="playerId" 
+          :playerName="playerName"
+          @join-room="switchView('room', { roomId: $event })"
+          @create-room="switchView('room', { roomId: $event })"
+        />
+        
+        <Room 
+          v-if="currentView === 'room'" 
+          :roomId="roomId"
+          :playerId="playerId" 
+          :playerName="playerName"
+          @game-start="switchView('game')"
+          @leave-room="handleLeaveRoom"
+        />
+        
+        <Game 
+          v-if="currentView === 'game'" 
+          :roomId="roomId"
+          :playerId="playerId" 
+          :playerName="playerName"
+          @game-end="switchView('result', { result: $event })"
+        />
+        
+        <GameResult 
+          v-if="currentView === 'result'" 
+          @back-to-lobby="switchView('lobby')"
+        />
+      </main>
       
-      <Game 
-        v-if="currentView === 'game'" 
-        :roomId="roomId"
-        :playerId="playerId" 
-        :playerName="playerName"
-        @game-end="switchView('result', { result: $event })"
-      />
-      
-      <GameResult 
-        v-if="currentView === 'result'" 
-        @back-to-lobby="switchView('lobby')"
-      />
-    </main>
-    
-    <footer v-if="currentView !== 'game'" class="app-footer">
-      <p>© 2025 红3</p>
-    </footer>
+      <footer v-if="currentView !== 'game'" class="app-footer">
+        <p>© 2025 红3</p>
+      </footer>
+    </template>
   </div>
 </template>
 
