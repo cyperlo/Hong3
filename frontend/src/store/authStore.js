@@ -53,7 +53,10 @@ const getBackendUrl = () => {
 const register = async (username, password, name) => {
   try {
     const backend = getBackendUrl();
-    const response = await fetch(`${backend.http}/api/register`, {
+    const url = `${backend.http}/api/register`;
+    console.log('注册请求 URL:', url);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -61,8 +64,12 @@ const register = async (username, password, name) => {
       body: JSON.stringify({ username, password, name }),
     });
 
+    console.log('注册响应状态:', response.status, response.statusText);
+    console.log('注册响应 URL:', response.url);
+
     // 先读取响应文本（Response body只能读取一次）
     const text = await response.text();
+    console.log('注册响应内容:', text);
     
     // 检查响应状态
     if (!response.ok) {
@@ -114,7 +121,10 @@ const register = async (username, password, name) => {
 const login = async (username, password) => {
   try {
     const backend = getBackendUrl();
-    const response = await fetch(`${backend.http}/api/login`, {
+    const url = `${backend.http}/api/login`;
+    console.log('登录请求 URL:', url);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -122,8 +132,12 @@ const login = async (username, password) => {
       body: JSON.stringify({ username, password }),
     });
 
+    console.log('登录响应状态:', response.status, response.statusText);
+    console.log('登录响应 URL:', response.url);
+
     // 先读取响应文本（Response body只能读取一次）
     const text = await response.text();
+    console.log('登录响应内容:', text);
     
     // 检查响应状态
     if (!response.ok) {
