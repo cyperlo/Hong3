@@ -59,6 +59,15 @@ const connectWebSocket = async (playerId, playerName) => {
       gameState.playerName = playerName;
       // 连接成功后立即获取房间列表
       fetchRooms();
+      // 检查是否有保存的房间ID，如果有则自动重新加入
+      const savedRoomId = localStorage.getItem('currentRoomId');
+      if (savedRoomId) {
+        console.log('检测到保存的房间ID，自动重新加入:', savedRoomId);
+        // 延迟一下，确保房间列表已获取
+        setTimeout(() => {
+          joinRoom(savedRoomId);
+        }, 500);
+      }
     };
 
     ws.connection.onmessage = (event) => {
@@ -76,7 +85,9 @@ const connectWebSocket = async (playerId, playerName) => {
       console.log('WebSocket连接已关闭');
       gameState.connected = false;
       gameState.connecting = false;
-      gameState.roomId = null;
+      // 注意：不在这里清除 roomId，因为可能是页面刷新导致的连接断开
+      // 页面刷新时会保存 roomId 到 localStorage，重新连接后会恢复
+      // 只有在明确离开房间时才清除 roomId
       gameState.roomPlayers = [];
     };
 
@@ -194,7 +205,12 @@ const createRoom = () => {
 };
 
 const joinRoom = (roomId) => {
-  sendMessage({ type: 'join_room', room_id: roomId });
+  if (roomId) {
+    // 保存房间ID到 localStorage，用于页面刷新后恢复
+    localStorage.setItem('currentRoomId', roomId);
+    gameState.roomId = roomId;
+    sendMessage({ type: 'join_room', room_id: roomId });
+  }
 };
 
 const leaveRoom = () => {
@@ -210,6 +226,8 @@ const leaveRoom = () => {
     gameState.tableCards = null;
     gameState.currentPlayer = null;
     gameState.lastPlayer = null;
+    // 清除保存的房间ID
+    localStorage.removeItem('currentRoomId');
   }
 };
 
@@ -415,6 +433,11 @@ const fetchRooms = async () => {
   }
 };
 
+// 获取保存的房间ID（用于页面刷新后恢复）
+const getSavedRoomId = () => {
+  return localStorage.getItem('currentRoomId');
+};
+
 export default {
   state: gameState,
   connectWebSocket,
@@ -427,4 +450,5 @@ export default {
   playCards,
   pass,
   hint,
+  getSavedRoomId,
 };

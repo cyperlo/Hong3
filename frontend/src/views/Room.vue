@@ -34,10 +34,18 @@ onMounted(() => {
     }
   }
   
+  // 获取房间ID（优先使用 props，然后是 gameState，最后是 localStorage）
+  const roomIdToJoin = props.roomId || gameState.roomId || gameStore.getSavedRoomId();
+  
   // 如果有房间ID，加入房间
-  if (props.roomId || gameState.roomId) {
-    const roomId = props.roomId || gameState.roomId;
-    gameStore.joinRoom(roomId);
+  if (roomIdToJoin) {
+    // 如果 WebSocket 已连接，立即加入房间
+    if (gameState.connected) {
+      gameStore.joinRoom(roomIdToJoin);
+    } else {
+      // 如果还未连接，等待连接成功后再加入（在 gameStore.js 的 onopen 中会自动处理）
+      console.log('等待 WebSocket 连接成功后自动加入房间:', roomIdToJoin);
+    }
   }
   
   // 设置游戏开始回调

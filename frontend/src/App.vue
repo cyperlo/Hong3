@@ -6,6 +6,7 @@ import Room from './views/Room.vue';
 import Game from './views/Game.vue';
 import GameResult from './views/GameResult.vue';
 import authStore from './store/authStore';
+import gameStore from './store/gameStore';
 
 // 游戏状态
 const currentView = ref('login'); // login, lobby, room, game, result
@@ -22,7 +23,16 @@ onMounted(() => {
     // 已登录，使用用户信息
     playerId.value = authStore.state.user.id;
     playerName.value = authStore.state.user.name;
-    currentView.value = 'lobby';
+    
+    // 检查是否有保存的房间ID，如果有则自动切换到房间视图
+    const savedRoomId = gameStore.getSavedRoomId();
+    if (savedRoomId) {
+      console.log('检测到保存的房间ID，自动切换到房间视图:', savedRoomId);
+      currentView.value = 'room';
+      roomId.value = savedRoomId;
+    } else {
+      currentView.value = 'lobby';
+    }
   } else {
     // 未登录，显示登录页面
     currentView.value = 'login';
