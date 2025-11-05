@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import gameStore from '../store/gameStore.js';
+import authStore from '../store/authStore.js';
 
 const props = defineProps({
   roomId: String,
@@ -21,9 +22,17 @@ const roomState = computed(() => {
   };
 });
 
-// 连接WebSocket
+// 连接WebSocket（如果还未连接）
 onMounted(() => {
-  gameStore.connectWebSocket(props.playerId, props.playerName);
+  // 如果还未连接，使用 authStore 中的用户信息连接
+  if (!gameState.connected && !gameState.connecting) {
+    if (authStore.state.user) {
+      gameStore.connectWebSocket(authStore.state.user.id, authStore.state.user.name);
+    } else if (props.playerId && props.playerName) {
+      // 如果没有认证信息，使用 props（备用方案）
+      gameStore.connectWebSocket(props.playerId, props.playerName);
+    }
+  }
   
   // 如果有房间ID，加入房间
   if (props.roomId || gameState.roomId) {

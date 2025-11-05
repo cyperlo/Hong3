@@ -61,10 +61,46 @@ const register = async (username, password, name) => {
       body: JSON.stringify({ username, password, name }),
     });
 
-    const data = await response.json();
+    // 先读取响应文本（Response body只能读取一次）
+    const text = await response.text();
     
+    // 检查响应状态
     if (!response.ok) {
-      throw new Error(data.error || '注册失败');
+      // 尝试解析错误信息
+      let errorMessage = '注册失败';
+      if (text && text.trim() !== '') {
+        try {
+          const errorData = JSON.parse(text);
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          errorMessage = text || response.statusText || `HTTP ${response.status}`;
+        }
+      } else {
+        errorMessage = response.statusText || `HTTP ${response.status}`;
+      }
+      throw new Error(errorMessage);
+    }
+
+    // 检查响应是否为空
+    if (!text || text.trim() === '') {
+      console.error('注册响应为空');
+      throw new Error('服务器返回空响应');
+    }
+
+    // 检查响应内容类型
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('注册响应不是JSON:', contentType, '响应内容:', text);
+      throw new Error('服务器返回格式错误');
+    }
+
+    // 解析JSON
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error('JSON解析失败:', e, '响应内容:', text);
+      throw new Error('服务器返回数据格式错误');
     }
 
     return data;
@@ -86,10 +122,52 @@ const login = async (username, password) => {
       body: JSON.stringify({ username, password }),
     });
 
-    const data = await response.json();
+    // 先读取响应文本（Response body只能读取一次）
+    const text = await response.text();
     
+    // 检查响应状态
     if (!response.ok) {
-      throw new Error(data.error || '登录失败');
+      // 尝试解析错误信息
+      let errorMessage = '登录失败';
+      if (text && text.trim() !== '') {
+        try {
+          const errorData = JSON.parse(text);
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // 如果不是JSON，使用原始文本或状态文本
+          errorMessage = text || response.statusText || `HTTP ${response.status}`;
+        }
+      } else {
+        errorMessage = response.statusText || `HTTP ${response.status}`;
+      }
+      throw new Error(errorMessage);
+    }
+
+    // 检查响应是否为空
+    if (!text || text.trim() === '') {
+      console.error('登录响应为空');
+      throw new Error('服务器返回空响应');
+    }
+
+    // 检查响应内容类型
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('登录响应不是JSON:', contentType, '响应内容:', text);
+      throw new Error('服务器返回格式错误');
+    }
+
+    // 解析JSON
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error('JSON解析失败:', e, '响应内容:', text);
+      throw new Error('服务器返回数据格式错误');
+    }
+    
+    // 验证必要字段
+    if (!data.token || !data.user) {
+      throw new Error('服务器返回数据不完整');
     }
 
     // 保存认证信息

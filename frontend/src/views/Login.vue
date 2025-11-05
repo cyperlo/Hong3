@@ -1,16 +1,36 @@
 <template>
   <div class="login-container">
+    <!-- 主内容区域 -->
     <div class="login-content">
-      <div class="logo-section">
-        <h1 class="app-title">
-          <span class="title-red">红</span><span class="title-number">3</span>
-        </h1>
-        <p class="subtitle">欢迎来到红3游戏</p>
+      <div class="login-wrapper">
+        <h1 class="app-title">红3</h1>
+        <p class="app-subtitle">欢迎登录</p>
+        
+        <div class="button-area">
+          <button
+            @click="handleLoginClick"
+            class="action-btn login-btn"
+          >
+            登录
+          </button>
+          <button
+            @click="handleRegisterClick"
+            class="action-btn register-btn"
+          >
+            注册
+          </button>
+        </div>
       </div>
+    </div>
 
-      <div class="login-form-container">
-        <div class="login-form">
+    <!-- 登录弹窗 -->
+    <div v-if="showLogin" class="modal-overlay" @click.self="showLogin = false">
+      <div class="modal-content">
+        <div class="modal-header">
           <h2>登录</h2>
+          <button class="close-btn" @click="showLogin = false">×</button>
+        </div>
+        <div class="modal-body">
           <div class="form-group">
             <input
               v-model="loginForm.username"
@@ -28,6 +48,9 @@
               @keyup.enter="handleLogin"
             />
           </div>
+          <div v-if="loginError" class="error-message">
+            {{ loginError }}
+          </div>
           <button
             @click="handleLogin"
             :disabled="loggingIn || !loginForm.username || !loginForm.password"
@@ -35,20 +58,12 @@
           >
             {{ loggingIn ? '登录中...' : '登录' }}
           </button>
-          <div class="form-footer">
-            <span>还没有账号？</span>
-            <button class="link-btn" @click="showRegister = true; registerError = ''">立即注册</button>
-          </div>
-        </div>
-
-        <div v-if="loginError" class="error-message">
-          {{ loginError }}
         </div>
       </div>
     </div>
 
     <!-- 注册弹窗 -->
-    <div v-if="showRegister" class="modal-overlay" @click.self="showRegister = false">
+    <div v-if="showRegister && !showLogin" class="modal-overlay" @click.self="showRegister = false">
       <div class="modal-content">
         <div class="modal-header">
           <h2>注册</h2>
@@ -101,6 +116,7 @@ import { ref, reactive } from 'vue';
 import authStore from '../store/authStore';
 
 const emit = defineEmits(['login-success']);
+const showLogin = ref(false);
 const showRegister = ref(false);
 const loggingIn = ref(false);
 const registering = ref(false);
@@ -118,6 +134,28 @@ const registerForm = reactive({
   name: '',
 });
 
+
+// 处理登录按钮点击
+const handleLoginClick = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  console.log('Login button clicked, showLogin before:', showLogin.value);
+  showLogin.value = true;
+  showRegister.value = false;
+  console.log('Login button clicked, showLogin after:', showLogin.value);
+};
+
+// 处理注册按钮点击
+const handleRegisterClick = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  console.log('Register button clicked, showRegister before:', showRegister.value);
+  showRegister.value = true;
+  showLogin.value = false;
+  registerError.value = '';
+  console.log('Register button clicked, showRegister after:', showRegister.value);
+};
+
 const handleLogin = async () => {
   if (!loginForm.username || !loginForm.password) {
     loginError.value = '请填写账号和密码';
@@ -129,6 +167,10 @@ const handleLogin = async () => {
 
   try {
     await authStore.login(loginForm.username, loginForm.password);
+    showLogin.value = false;
+    loginForm.username = '';
+    loginForm.password = '';
+    loginError.value = '';
     emit('login-success');
   } catch (err) {
     loginError.value = err.message || '登录失败';
@@ -158,6 +200,7 @@ const handleRegister = async () => {
     
     // 关闭弹窗并清空表单
     showRegister.value = false;
+    showLogin.value = false;
     registerForm.username = '';
     registerForm.password = '';
     registerForm.name = '';
@@ -177,254 +220,139 @@ const handleRegister = async () => {
     registering.value = false;
   }
 };
+
 </script>
 
 <style scoped>
 .login-container {
-  position: fixed;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  min-width: 100vw !important;
+  min-height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
+  z-index: 99999 !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+
+/* 主内容区域 */
+.login-content {
+  position: absolute;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
-  min-height: 100vh;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background: #f5f5f5;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 1rem;
-  overflow: hidden;
-}
-
-.login-content {
-  width: 100%;
-  max-width: 600px;
-  background: white;
-  border-radius: 20px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-}
-
-/* 横屏模式优化 */
-@media (orientation: landscape) {
-  .login-content {
-    max-width: 800px;
-    display: flex;
-    flex-direction: row;
-  }
-  
-  .logo-section {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-  
-  .login-form-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-}
-
-.logo-section {
-  background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%);
-  color: white;
   padding: 2rem;
+  box-sizing: border-box;
+}
+
+.login-wrapper {
+  width: 100%;
+  max-width: 400px;
   text-align: center;
 }
 
 .app-title {
   font-size: 3rem;
   font-weight: bold;
-  margin: 0;
+  color: #d32f2f;
+  margin: 0 0 0.5rem 0;
   letter-spacing: 2px;
 }
 
-.title-red {
-  color: #ffeb3b;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.title-number {
-  color: white;
-  margin-left: 0.2rem;
-}
-
-.subtitle {
-  margin-top: 0.5rem;
-  font-size: 1rem;
-  opacity: 0.9;
-}
-
-.login-form-container {
-  padding: 2rem;
-}
-
-.login-form h2,
-.register-form h2 {
-  margin: 0 0 1.5rem 0;
-  font-size: 1.8rem;
-  color: #333;
-  text-align: center;
-}
-
-.form-group {
-  margin-bottom: 1.2rem;
-}
-
-.form-input {
-  width: 100%;
-  padding: 1rem;
-  font-size: 1rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  transition: border-color 0.3s;
-  box-sizing: border-box;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: #d32f2f;
-}
-
-.btn {
-  width: 100%;
-  padding: 1rem;
+.app-subtitle {
   font-size: 1.1rem;
-  font-weight: 600;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s;
-  margin-top: 0.5rem;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
-}
-
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(211, 47, 47, 0.4);
-}
-
-.btn-primary:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-.form-footer {
-  margin-top: 1.5rem;
-  text-align: center;
   color: #666;
-  font-size: 0.9rem;
+  margin: 0 0 3rem 0;
 }
 
-.link-btn {
-  background: none;
-  border: none;
-  color: #d32f2f;
-  cursor: pointer;
+.button-area {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.action-btn {
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  font-size: 1rem;
   font-weight: 600;
-  margin-left: 0.5rem;
-  padding: 0;
-  text-decoration: underline;
-}
-
-.link-btn:hover {
-  color: #b71c1c;
-}
-
-.error-message {
-  margin-top: 1rem;
-  padding: 0.75rem;
-  background: #ffebee;
-  color: #c62828;
+  border: none;
   border-radius: 8px;
-  border-left: 4px solid #c62828;
-  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  touch-action: manipulation;
 }
 
-/* 横屏手机端优化 */
-@media (max-width: 768px) and (orientation: landscape) {
-  .login-container {
-    padding: 0.5rem;
-  }
-
-  .login-content {
-    max-width: 100%;
-    border-radius: 12px;
-  }
-
-  .logo-section {
-    padding: 1.5rem;
-  }
-
-  .app-title {
-    font-size: 2.5rem;
-  }
-
-  .login-form-container {
-    padding: 1.5rem;
-  }
-
-  .login-form h2,
-  .register-form h2 {
-    font-size: 1.5rem;
-  }
+.login-btn {
+  background-color: #1b5e20;
+  color: white;
 }
 
-/* 竖屏手机端 */
-@media (max-width: 768px) and (orientation: portrait) {
-  .login-container {
-    padding: 1rem;
-  }
-
-  .app-title {
-    font-size: 2.5rem;
-  }
+.login-btn:hover {
+  background-color: #2e7d32;
 }
 
-/* 注册弹窗样式 */
+.login-btn:active {
+  background-color: #1b5e20;
+  transform: scale(0.98);
+}
+
+.register-btn {
+  background-color: #d32f2f;
+  color: white;
+}
+
+.register-btn:hover {
+  background-color: #f44336;
+}
+
+.register-btn:active {
+  background-color: #d32f2f;
+  transform: scale(0.98);
+}
+
+/* 弹窗样式 */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
+  width: 100vw;
+  height: 100vh;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10000;
   padding: 1rem;
 }
 
 .modal-content {
   background: white;
-  border-radius: 16px;
+  border-radius: 12px;
   width: 100%;
-  max-width: 400px;
+  max-width: 450px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: modalSlideIn 0.3s ease-out;
-}
-
-@keyframes modalSlideIn {
-  from {
-    transform: translateY(-20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .modal-header {
@@ -439,6 +367,7 @@ const handleRegister = async () => {
   margin: 0;
   font-size: 1.5rem;
   color: #333;
+  font-weight: bold;
 }
 
 .close-btn {
@@ -454,7 +383,7 @@ const handleRegister = async () => {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  transition: all 0.3s;
+  transition: all 0.2s;
 }
 
 .close-btn:hover {
@@ -466,12 +395,96 @@ const handleRegister = async () => {
   padding: 1.5rem;
 }
 
-.modal-body .form-group {
-  margin-bottom: 1rem;
+.form-group {
+  margin-bottom: 1.2rem;
 }
 
-.modal-body .btn {
+.form-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  font-size: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  transition: all 0.2s;
+  box-sizing: border-box;
+  background: white;
+  color: #333;
+}
+
+.form-input::placeholder {
+  color: #999;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #1b5e20;
+  box-shadow: 0 0 0 3px rgba(27, 94, 32, 0.1);
+}
+
+.btn {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 0.5rem;
+  box-sizing: border-box;
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+
+.btn-primary {
+  background-color: #1b5e20;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #2e7d32;
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-primary:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  transform: none;
+  color: #999;
+}
+
+.error-message {
   margin-top: 1rem;
+  padding: 0.75rem;
+  background: #ffebee;
+  color: #c62828;
+  border-radius: 8px;
+  border-left: 4px solid #c62828;
+  font-size: 0.9rem;
 }
-</style>
 
+/* 移动端优化 */
+@media screen and (max-width: 768px) {
+  .login-content {
+    padding: 1rem;
+  }
+  
+  .app-title {
+    font-size: 2.5rem;
+  }
+  
+  .app-subtitle {
+    font-size: 1rem;
+    margin-bottom: 2rem;
+  }
+  
+  .modal-content {
+    max-width: 90%;
+  }
+}
+
+</style>

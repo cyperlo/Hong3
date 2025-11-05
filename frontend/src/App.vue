@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue';
 import Login from './views/Login.vue';
 import Lobby from './views/Lobby.vue';
 import Room from './views/Room.vue';
@@ -65,7 +65,7 @@ watch(currentView, (newView) => {
 </script>
 
 <template>
-  <div class="app-container" :class="{ 'game-view': currentView === 'game' }">
+  <div class="app-container" :class="{ 'game-view': currentView === 'game', 'login-view': currentView === 'login' }">
     <!-- 登录页面 -->
     <Login 
       v-if="currentView === 'login'" 
@@ -74,59 +74,59 @@ watch(currentView, (newView) => {
     
     <!-- 游戏页面 -->
     <template v-else>
-      <header v-if="currentView !== 'game'" class="app-header" :class="{ 'room-header-mode': currentView === 'room', 'lobby-header-mode': currentView === 'lobby' }">
-        <div class="header-content">
-          <h1 class="app-title">
-            <span class="title-red">红</span><span class="title-number">3</span>
-          </h1>
-          <div v-if="currentView === 'room'" class="room-header-info">
-            <div class="room-badge">
-              <span class="room-icon">🏠</span>
-              <span class="room-id-text">房间 {{ roomId }}</span>
-            </div>
-            <button class="header-leave-btn" @click="handleLeaveRoom">
-              <span class="leave-icon">←</span>
-              离开
-            </button>
+    <header v-if="currentView !== 'game'" class="app-header" :class="{ 'room-header-mode': currentView === 'room', 'lobby-header-mode': currentView === 'lobby' }">
+      <div class="header-content">
+        <h1 class="app-title">
+          <span class="title-red">红</span><span class="title-number">3</span>
+        </h1>
+        <div v-if="currentView === 'room'" class="room-header-info">
+          <div class="room-badge">
+            <span class="room-icon">🏠</span>
+            <span class="room-id-text">房间 {{ roomId }}</span>
           </div>
+          <button class="header-leave-btn" @click="handleLeaveRoom">
+            <span class="leave-icon">←</span>
+            离开
+          </button>
         </div>
-      </header>
+      </div>
+    </header>
+    
+    <main class="app-content">
+      <Lobby 
+        v-if="currentView === 'lobby'" 
+        :playerId="playerId" 
+        :playerName="playerName"
+        @join-room="switchView('room', { roomId: $event })"
+        @create-room="switchView('room', { roomId: $event })"
+      />
       
-      <main class="app-content">
-        <Lobby 
-          v-if="currentView === 'lobby'" 
-          :playerId="playerId" 
-          :playerName="playerName"
-          @join-room="switchView('room', { roomId: $event })"
-          @create-room="switchView('room', { roomId: $event })"
-        />
-        
-        <Room 
-          v-if="currentView === 'room'" 
-          :roomId="roomId"
-          :playerId="playerId" 
-          :playerName="playerName"
-          @game-start="switchView('game')"
-          @leave-room="handleLeaveRoom"
-        />
-        
-        <Game 
-          v-if="currentView === 'game'" 
-          :roomId="roomId"
-          :playerId="playerId" 
-          :playerName="playerName"
-          @game-end="switchView('result', { result: $event })"
-        />
-        
-        <GameResult 
-          v-if="currentView === 'result'" 
-          @back-to-lobby="switchView('lobby')"
-        />
-      </main>
+      <Room 
+        v-if="currentView === 'room'" 
+        :roomId="roomId"
+        :playerId="playerId" 
+        :playerName="playerName"
+        @game-start="switchView('game')"
+        @leave-room="handleLeaveRoom"
+      />
       
-      <footer v-if="currentView !== 'game'" class="app-footer">
-        <p>© 2025 红3</p>
-      </footer>
+      <Game 
+        v-if="currentView === 'game'" 
+        :roomId="roomId"
+        :playerId="playerId" 
+        :playerName="playerName"
+        @game-end="switchView('result', { result: $event })"
+      />
+      
+      <GameResult 
+        v-if="currentView === 'result'" 
+        @back-to-lobby="switchView('lobby')"
+      />
+    </main>
+    
+    <footer v-if="currentView !== 'game'" class="app-footer">
+      <p>© 2025 红3</p>
+    </footer>
     </template>
   </div>
 </template>
@@ -150,15 +150,23 @@ body {
   min-height: 100vh;
   width: 100%;
   position: relative;
-  /* 全屏显示 */
+}
+
+/* 登录页面时，确保 app-container 不遮挡 */
+.app-container.login-view {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  overflow: hidden;
+  z-index: 1;
 }
 
+.app-container.login-view .app-content {
+  display: none;
+}
+
+/* 游戏视图时固定全屏 */
 .app-container.game-view {
   position: fixed;
   top: 0;
@@ -167,6 +175,7 @@ body {
   height: 100vh;
   min-height: 100vh;
   overflow: hidden;
+  z-index: 1000;
 }
 
 /* 移动端横屏优化 */
@@ -306,7 +315,8 @@ body {
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
-  overflow: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .app-container.game-view .app-content {
@@ -365,7 +375,8 @@ body {
   }
 }
 
-button {
+/* 全局按钮样式，但登录页面的按钮会被覆盖 */
+button:not(.action-btn):not(.btn):not(.btn-primary):not(.link-btn):not(.close-btn) {
   background-color: #d32f2f;
   color: white;
   border: none;
@@ -376,11 +387,11 @@ button {
   transition: background-color 0.3s;
 }
 
-button:hover {
+button:not(.action-btn):not(.btn):not(.btn-primary):not(.link-btn):not(.close-btn):hover {
   background-color: #b71c1c;
 }
 
-button:disabled {
+button:not(.action-btn):not(.btn):not(.btn-primary):not(.link-btn):not(.close-btn):disabled {
   background-color: #ccc;
   cursor: not-allowed;
 }

@@ -7,10 +7,6 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="screen-orientation" content="landscape" />
-    <meta name="x5-orientation" content="landscape" />
-    <meta name="x5-fullscreen" content="true" />
-    <meta name="x5-page-mode" content="app" />
     <title>红3</title>
     <style>
       * {
@@ -19,29 +15,65 @@
         box-sizing: border-box;
       }
       html, body {
-        width: 100vw;
-        height: 100vh;
+        width: 100%;
+        height: 100%;
         min-height: 100vh;
-        overflow: hidden;
-        position: fixed;
-        top: 0;
-        left: 0;
+        margin: 0;
+        padding: 0;
         -webkit-overflow-scrolling: touch;
-        /* 强制横屏 */
         -webkit-user-select: none;
         user-select: none;
-        touch-action: none;
+        touch-action: manipulation;
+        overscroll-behavior: none;
+        -webkit-touch-callout: none;
       }
+      
+      /* 游戏视图时应用全屏横屏样式 */
       body.game-fullscreen {
         overflow: hidden;
         position: fixed;
         width: 100vw;
         height: 100vh;
+        max-width: 100vw;
+        max-height: 100vh;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        margin: 0;
+        padding: 0;
       }
-      #app {
+      
+      body.game-fullscreen html {
         width: 100vw;
         height: 100vh;
+        max-width: 100vw;
+        max-height: 100vh;
+        overflow: hidden;
+        margin: 0;
+        padding: 0;
+      }
+      
+      /* 全屏时确保无白边 */
+      :fullscreen,
+      :-webkit-full-screen,
+      :-moz-full-screen,
+      :-ms-fullscreen {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 100% !important;
+        max-height: 100% !important;
+      }
+      #app {
+        width: 100%;
         min-height: 100vh;
+        position: relative;
+      }
+      
+      /* 游戏视图时应用全屏样式 */
+      body.game-fullscreen #app {
+        width: 100vw;
+        height: 100vh;
         position: fixed;
         top: 0;
         left: 0;

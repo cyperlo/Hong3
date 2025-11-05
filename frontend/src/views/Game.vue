@@ -2,6 +2,7 @@
 import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import PlayingCard from '../components/PlayingCard.vue';
 import gameStore from '../store/gameStore.js';
+import authStore from '../store/authStore.js';
 
 const props = defineProps({
   roomId: String,
@@ -16,8 +17,6 @@ const isMyTurn = computed(() => {
   return gameState.currentPlayer === gameState.player?.position;
 });
 
-const isLandscape = ref(false);
-const showRotateHint = ref(false);
 
 // 发牌动画相关
 const isDealing = ref(false);
@@ -74,51 +73,22 @@ watch(() => gameState.player?.cards, (newCards, oldCards) => {
   }
 }, { deep: true, immediate: true });
 
-// 检测屏幕方向
-const checkOrientation = () => {
-  const isLandscapeMode = window.innerWidth > window.innerHeight;
-  isLandscape.value = isLandscapeMode;
-  showRotateHint.value = !isLandscapeMode && window.innerWidth < 768;
-  
-  // 如果是竖屏，尝试锁定横屏（需要用户授权）
-  if (!isLandscapeMode && window.screen && window.screen.orientation) {
-    try {
-      window.screen.orientation.lock('landscape').catch(() => {
-        // 锁定失败，显示提示
-        showRotateHint.value = true;
-      });
-    } catch (e) {
-      // 不支持锁定，显示提示
-      showRotateHint.value = true;
-    }
-  }
-};
+
 
 onMounted(() => {
-  gameStore.connectWebSocket(props.playerId, props.playerName);
+  // 如果还未连接，使用 authStore 中的用户信息连接
+  if (!gameState.connected && !gameState.connecting) {
+    if (authStore.state.user) {
+      gameStore.connectWebSocket(authStore.state.user.id, authStore.state.user.name);
+    } else if (props.playerId && props.playerName) {
+      // 如果没有认证信息，使用 props（备用方案）
+      gameStore.connectWebSocket(props.playerId, props.playerName);
+    }
+  }
   
   if (props.roomId) {
     gameStore.joinRoom(props.roomId);
   }
-  
-  // 检测屏幕方向
-  checkOrientation();
-  window.addEventListener('resize', checkOrientation);
-  window.addEventListener('orientationchange', checkOrientation);
-  
-  // 尝试全屏（需要用户交互）
-  const tryFullscreen = () => {
-    if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch(() => {});
-    } else if (document.documentElement.webkitRequestFullscreen) {
-      document.documentElement.webkitRequestFullscreen();
-    } else if (document.documentElement.mozRequestFullScreen) {
-      document.documentElement.mozRequestFullScreen();
-    }
-  };
-  
-  // 延迟尝试全屏，避免阻塞
-  setTimeout(tryFullscreen, 500);
 });
 
 // 断开WebSocket连接
@@ -126,8 +96,6 @@ onBeforeUnmount(() => {
   if (gameState.socket) {
     gameState.socket.close();
   }
-  window.removeEventListener('resize', checkOrientation);
-  window.removeEventListener('orientationchange', checkOrientation);
 });
 
 // 选择/取消选择卡牌
@@ -241,16 +209,7 @@ const startDealingAnimation = (cards) => {
 
 <template>
   
-  <div class="game-table" :class="{ 'landscape': isLandscape }">
-    <!-- 横屏提示 -->
-    <div v-if="showRotateHint" class="rotate-hint">
-      <div class="rotate-hint-content">
-        <div class="rotate-icon">📱</div>
-        <p>请将手机横屏以获得最佳游戏体验</p>
-        <p class="rotate-hint-sub">Rotate your device to landscape mode</p>
-      </div>
-    </div>
-    
+  <div class="game-table">
     <!-- 顶部：其他玩家区域 -->
     <div class="players-top-row">
       <div 
@@ -357,54 +316,7 @@ const startDealingAnimation = (cards) => {
 }
 
 
-/* 横屏提示 */
-.rotate-hint {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.9);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 10000;
-  color: white;
-}
-
-.rotate-hint-content {
-  text-align: center;
-  padding: 2rem;
-}
-
-.rotate-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-  animation: rotate 2s linear infinite;
-}
-
-@keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(90deg);
-  }
-}
-
-.rotate-hint-content p {
-  font-size: 1.2rem;
-  margin: 0.5rem 0;
-  font-weight: bold;
-}
-
-.rotate-hint-sub {
-  font-size: 0.9rem;
-  opacity: 0.8;
-  font-weight: normal;
-}
-
-/* 顶部玩家区域（横屏时显示在顶部） */
+/* 顶部玩家区域 */
 .players-top-row {
   display: flex;
   justify-content: space-around;
@@ -706,159 +618,4 @@ const startDealingAnimation = (cards) => {
   margin: 1rem 0;
 }
 
-/* 横屏优化（手机横屏模式） */
-@media (orientation: landscape) {
-  .game-table {
-    height: 100vh;
-    width: 100vw;
-  }
-  
-  .players-top-row {
-    min-height: 75px;
-    max-height: 85px;
-    padding: 0.3rem 0.2rem;
-  }
-  
-  .player-info {
-    padding: 0.25rem 0.4rem;
-  }
-  
-  .player-name {
-    font-size: 0.7rem;
-  }
-  
-  .card-count {
-    font-size: 0.6rem;
-  }
-  
-  .card-back {
-    width: 18px;
-    height: 26px;
-  }
-  
-  .card-count-more {
-    width: 18px;
-    height: 26px;
-    font-size: 0.6rem;
-  }
-  
-  .game-center {
-    padding: 0.3rem;
-    flex: 1;
-    min-height: 0;
-  }
-  
-  .table-cards {
-    padding: 0.6rem 1rem;
-    min-width: 180px;
-    max-width: 85%;
-  }
-  
-  .table-cards-label {
-    font-size: 0.9rem;
-    margin-bottom: 0.3rem;
-  }
-  
-  .table-cards-content {
-    font-size: 1rem;
-  }
-  
-  .player-hand {
-    padding: 0.3rem 0.2rem;
-    max-height: 35vh;
-    min-height: 160px;
-  }
-  
-  .hand-cards-container {
-    gap: 5px;
-    padding: 6px 8px;
-  }
-  
-  .hand-card {
-    width: 55px;
-    height: 80px;
-  }
-  
-  .hand-card.selected {
-    transform: translateY(-10px) scale(1.06);
-  }
-  
-  .action-buttons {
-    gap: 0.4rem;
-    margin-top: 0.4rem;
-    padding: 0 0.3rem;
-  }
-  
-  .action-buttons button {
-    padding: 0.6rem 0.6rem;
-    font-size: 0.85rem;
-  }
-  
-  .my-turn {
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
-  }
-}
-
-/* 小屏幕横屏（手机） */
-@media (orientation: landscape) and (max-height: 500px) {
-  .players-top-row {
-    min-height: 65px;
-    max-height: 70px;
-    padding: 0.2rem;
-  }
-  
-  .player-info {
-    padding: 0.2rem 0.3rem;
-  }
-  
-  .player-name {
-    font-size: 0.65rem;
-  }
-  
-  .card-count {
-    font-size: 0.55rem;
-  }
-  
-  .card-back {
-    width: 15px;
-    height: 22px;
-  }
-  
-  .hand-card {
-    width: 50px;
-    height: 72px;
-  }
-  
-  .player-hand {
-    max-height: 30vh;
-    min-height: 140px;
-  }
-  
-  .action-buttons button {
-    padding: 0.5rem 0.5rem;
-    font-size: 0.8rem;
-  }
-}
-
-/* 竖屏手机优化 - 显示横屏提示 */
-@media (orientation: portrait) and (max-width: 768px) {
-  .rotate-hint {
-    display: flex;
-  }
-  
-  .players-top-row,
-  .game-center,
-  .player-hand {
-    opacity: 0.3;
-    pointer-events: none;
-  }
-}
-
-/* 横屏时隐藏提示 */
-@media (orientation: landscape) {
-  .rotate-hint {
-    display: none !important;
-  }
-}
 </style>
